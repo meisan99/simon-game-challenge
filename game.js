@@ -2,17 +2,160 @@
 /** @type {ButtonColor[]} */
 const buttonColors = ["green", "red", "yellow", "blue"]
 
-/** @type {ButtonColor[]} */
-var gamePattern = [];
-/** @type {ButtonColor[]} */
-var userClickedPattern = []
+class GameController {
+    /** @typedef { "idle" | "playing" | "gameOver" } GamePhase */
 
-/** @type {Boolean} */
-var started = false;
+    /** @typedef {function() : void } OnStartCallback */
+    /** @typedef {function(number, readonly ButtonColor[]): void } OnProceedCallback */
+    /** @typedef {function() : void } OnGameOverCallback */
 
-setup();
+    /**
+     * 
+     * @param {{onStart: OnStartCallback, onProceed: OnProceedCallback, onGameOver: OnGameOverCallback}} callback
+     */
+    constructor(callback) {
+
+        /** @type {ButtonColor[]} */
+        this.gamePattern = [];
+        /** @type {ButtonColor[]} */
+        this.clickedColorHistory = []
+
+        /** @type {GamePhase} */
+        this.gamePhase = 'idle';
+
+        // Callbacks
+
+        /** @type {OnStartCallback}  */
+        this.onStart = callback.onStart;
+        /** @type {OnProceedCallback}  */
+        this.onProceed = callback.onProceed;
+        /** @type {OnGameOverCallback} */
+        this.onGameOver = callback.onGameOver;
+
+        this.start = this.start.bind(this);
+    }
+
+    start() {
+
+        if (this.#isInGame()) return;
+
+        this.gamePhase = 'playing';
+        this.#increaseLevel();
+        this.onStart();
+    }
+
+    /** 
+     * 
+     * @param {ButtonColor} color
+     * @returns {Boolean}
+     */
+    selectMove(color) {
+        this.clickedColorHistory.push(color);
+
+        if (!this.#checkLastMove()) {
+            this.#gameOver();
+            return false;
+        }
+
+        // Proceed next sequence if current level cleared
+        if (this.clickedColorHistory.length == this.gamePattern.length) {
+            this.#increaseLevel();
+        }
+
+        return true;
+    }
+
+
+    #increaseLevel() {
+        this.clickedColorHistory = [];
+
+        const randomIdx = Math.floor(Math.random() * buttonColors.length);
+        const nextColor = buttonColors[randomIdx];
+        this.gamePattern.push(nextColor);
+
+        const frozen = Object.freeze([...this.gamePattern]);
+        this.onProceed(this.gamePattern.length, frozen);
+    }
+
+    #gameOver() {
+        this.gamePhase = 'gameOver'
+
+        this.clickedColorHistory = [];
+        this.gamePattern = [];
+
+        this.onGameOver();
+    }
+
+    /** Utilities **/
+
+    #isInGame() {
+        return this.gamePhase == "playing";
+    }
+
+    #checkLastMove() {
+        const lastIndex = this.clickedColorHistory.length - 1;
+        if (lastIndex < 0 || lastIndex >= this.gamePattern.length) {
+            return false;
+        }
+
+        const userLastMove = this.clickedColorHistory[lastIndex];
+        return userLastMove === this.gamePattern[lastIndex];
+    }
+
+}
+
+class AnimationTracker {
+    /**
+     * @type {Set<Promise<any>>}
+     */
+    #running = new Set();
+
+    /**
+     * @template T
+     * @param {Promise<T>} promise
+     * @returns {Promise<T>}
+     */
+    track(promise) {
+        this.#running.add(promise);
+        promise.finally(() => this.#running.delete(promise));
+        return promise;
+    }
+
+    get isAnimating() {
+        return this.#running.size > 0;
+    }
+}
+
+const game = new GameController(
+    {
+        onStart: () => {
+            document.removeEventListener('click', game.start);
+        },
+        onProceed: (level, patterns) => {
+            updateTitle(`Level ${level}`)
+
+            animations.track((async () => {
+                if (level > 1) await sleep(1000);
+                await playColorInSequence(patterns);
+            })());
+
+        },
+        onGameOver: () => {
+            playAudio('wrong');
+            updateTitle('Game Over, Click Anywhere to Restart');
+            playGameOverEffect();
+
+            setTimeout(() => {
+                document.addEventListener('click', game.start);
+            }, 100);
+        }
+    }
+);
+
+const animations = new AnimationTracker();
 
 function setup() {
+
     // Button Setup
     const allButtons = document.querySelectorAll('div.btn');
     for (var i = 0; i < allButtons.length; i++) {
@@ -20,104 +163,76 @@ function setup() {
         button.addEventListener('click', () => {
             if (!isInteractable()) return;
 
-            if (!buttonColors.includes(button.id)) {
+            if (!isButtonColor(button.id)) {
                 console.warn(`Invalid button id ${button.id}`);
                 return;
             }
 
-            playPressEffect(button);
+            playPressEffect(/** @type {HTMLElement} */(button));
             selectColor(button.id);
         });
     }
 
     // Keybord Setup
-    document.addEventListener('click', tryStartGame);
-}
-
-function tryStartGame() {
-    if (started) return;
-
-    started = true
-    proceedNextSequence();
-    document.removeEventListener('click', tryStartGame);
+    document.addEventListener('click', game.start);
 }
 
 /**
- * 
- * @returns
+ * @param {string} id
+ * @returns {id is ButtonColor}
  */
-function proceedNextSequence() {
-
-    userClickedPattern = [];
-
-    const randomIdx = Math.floor(Math.random() * buttonColors.length);
-    const nextColor = buttonColors[randomIdx];
-    gamePattern.push(nextColor);
-
-    var targetButton = document.querySelector(`.btn#${nextColor}`);
-
-    playAudio(nextColor);
-    playFlashEffect(targetButton);
-
-    updateTitle(`Level ${gamePattern.length}`);
+function isButtonColor(id) {
+    return buttonColors.includes(/** @type {ButtonColor} */(id));
 }
 
 /**
  * 
  * @param {ButtonColor} color 
- * @param
  */
 function selectColor(color) {
-    userClickedPattern.push(color);
+    const correct = game.selectMove(color);
 
-    if (!validateColor(userClickedPattern.length - 1, color)) {
-        gameOver();
-        return;
+    if (correct) {
+        playAudio(color);
     }
-
-    playAudio(color);
-
-    // Proceed next sequence if current level cleared
-    if (userClickedPattern.length == gamePattern.length) {
-        setTimeout(() => {
-            proceedNextSequence();
-        }, 1000);
-    }
-}
-
-
-function gameOver() {
-
-    gamePattern = [];
-    userClickedPattern = [];
-    started = false;
-
-    // handle wrong answer
-    playAudio('wrong');
-    updateTitle('Game Over, Click Anywhere to Restart');
-    playGameOverEffect();
-
-    setTimeout(() => {
-        document.addEventListener('click', tryStartGame);
-    }, 100);
-}
-
-/** Utility **/
-
-function isInteractable() {
-    return started;
 }
 
 /**
  * 
- * @param {number} index
- * @param {ButtonColor} color
- * @returns {boolean}
+ * @param {readonly ButtonColor[]} colors
+ * @returns {Promise<void>}
  */
-function validateColor(index, color) {
-    return color === gamePattern[index];
+async function playColorInSequence(colors) {
+
+    for (var i = 0; i < colors.length; i++) {
+
+        const nextColor = colors[i];
+
+        playAudio(nextColor);
+
+        const targetButton = document.querySelector(`.btn#${nextColor}`);
+        if (targetButton)
+            playFlashEffect(/** @type {HTMLElement} */(targetButton));
+
+        await sleep(600);
+    }
 }
 
+
+/** Utility **/
+
+/**
+ *
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isInteractable() {
+    return game.gamePhase == 'playing' && !animations.isAnimating;
+}
 
 /**
  * 
@@ -125,7 +240,9 @@ function validateColor(index, color) {
  */
 function updateTitle(title) {
     const titleElement = document.getElementById('level-title');
-    titleElement.textContent = title;
+
+    if (titleElement)
+        titleElement.textContent = title;
 }
 
 /**
@@ -162,8 +279,10 @@ function playPressEffect(element) {
 }
 
 function playGameOverEffect() {
-    document.body.classList.add('game-over');
-    setTimeout(() => {
-        document.body.classList.remove('game-over');
-    }, 100);
+    document.documentElement.classList.remove('game-over');
+    void document.body.offsetWidth;
+    document.documentElement.classList.add('game-over');
 }
+
+// Initialization
+setup();
