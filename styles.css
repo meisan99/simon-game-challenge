@@ -9,10 +9,12 @@ body {
   background-position: center;
   background-repeat: no-repeat;
   box-sizing: border-box;
+  margin: 0%;
 }
 
 footer {
   margin-top: auto;
+  margin-bottom: 10px;
   color: white;
 }
 
