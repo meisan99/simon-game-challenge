@@ -4,6 +4,9 @@ A browser recreation of the classic Simon memory game, built with vanilla HTML, 
 
 This project is mainly a coding practice exercise focused on JavaScript fundamentals and DOM manipulation, using event handling, state management, and DOM querying/updates without any frameworks or libraries.
 
+## Live
+[Visit Live Site](https://meisan99.github.io/simon-game-challenge/)
+
 ## Tech Stack
 
 - HTML5
