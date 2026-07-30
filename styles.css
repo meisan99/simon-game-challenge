@@ -1,12 +1,18 @@
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 5px;
   text-align: center;
   background-image: url("./images/background.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  box-sizing: border-box;
 }
 
 footer {
+  margin-top: auto;
   color: white;
 }
 
@@ -16,7 +22,7 @@ footer a:visited {
 }
 
 footer a:hover {
-  color: #eebffe; 
+  color: #eebffe;
 }
 
 #level-title {
@@ -52,10 +58,10 @@ footer a:hover {
 
 @keyframes hit-flash {
   from {
-    box-shadow: inset 0 0 200px rgba(255, 0, 0, 0.8);
+    box-shadow: inset 0 0 350px rgba(255, 0, 0, 0.8);
   }
   to {
-    box-shadow: inset 0 0 200px rgba(255, 0, 0, 0);
+    box-shadow: inset 0 0 350px rgba(255, 0, 0, 0);
   }
 }
 

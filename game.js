@@ -280,7 +280,7 @@ function playPressEffect(element) {
 
 function playGameOverEffect() {
     document.documentElement.classList.remove('game-over');
-    void document.body.offsetWidth;
+    void document.documentElement.offsetWidth;
     document.documentElement.classList.add('game-over');
 }
 
